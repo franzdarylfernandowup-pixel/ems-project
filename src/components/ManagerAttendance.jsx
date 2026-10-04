@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { getCurrentUser } from "../lib/mockDb"
-import { getAnnouncements, createAnnouncement } from "../lib/announcementsApi"
+import { getDepartmentAttendance } from "../lib/attendanceApi"
 import Sidebar from "./Sidebar"
 
 const MANAGER_MENU = [
@@ -13,131 +13,169 @@ const MANAGER_MENU = [
   { label: "Employees", path: "/manager/employees" },
 ]
 
-const ROLE_LABEL = {
-  employee: "Employee",
-  department_manager: "Department Manager",
-}
-
-export default function ManagerAnnouncements() {
+export default function ManagerAttendance() {
   const [user, setUser] = useState(null)
-  const [announcements, setAnnouncements] = useState([])
+  const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ title: "", body: "", audience: "department" })
-  const [submitting, setSubmitting] = useState(false)
-  const [message, setMessage] = useState(null)
+  const [message, setMessage] = useState("")
 
-  async function load() {
-    const result = await getAnnouncements()
-    if (result.status === "ok") setAnnouncements(result.announcements)
+  const today = new Date().toISOString().slice(0, 10)
+
+  async function loadAttendance(currentUser) {
+    if (!currentUser?.department) {
+      setMessage("Department information is not available.")
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setMessage("")
+
+    const result = await getDepartmentAttendance(
+      currentUser.department,
+      today
+    )
+
+    if (result.status === "error") {
+      setMessage(result.message)
+      setRecords([])
+    } else {
+      setRecords(result.records || [])
+    }
+
     setLoading(false)
   }
 
   useEffect(() => {
     getCurrentUser().then(async (u) => {
       setUser(u)
-      await load()
+      await loadAttendance(u)
     })
   }, [])
 
-  async function handlePost(e) {
-    e.preventDefault()
-    setMessage(null)
-
-    if (!form.title.trim() || !form.body.trim()) {
-      setMessage({ error: true, text: "Title and message are required." })
-      return
-    }
-
-    setSubmitting(true)
-    const result = await createAnnouncement({
-      postedBy: user.id,
-      title: form.title,
-      body: form.body,
-      department: form.audience === "department" ? user.department : null,
-    })
-    setSubmitting(false)
-
-    if (result.status === "error") {
-      setMessage({ error: true, text: result.message })
-      return
-    }
-
-    setMessage({ error: false, text: "Announcement posted!" })
-    setForm({ title: "", body: "", audience: "department" })
-    load()
-  }
-
   return (
     <div className="min-h-screen bg-neutral-100 md:pl-60">
-      <Sidebar user={user} items={MANAGER_MENU} activePath="/manager/announcements" />
+      <Sidebar
+        user={user}
+        items={MANAGER_MENU}
+        activePath="/manager/attendance"
+      />
 
       <main className="p-8">
-        <p className="text-xs text-neutral-400">Dashboard &gt; Announcements</p>
-        <h1 className="mt-1 text-2xl font-semibold text-neutral-900">Announcements</h1>
-        <p className="text-xs text-neutral-400">Post updates to your department or the whole company</p>
+        <p className="text-xs text-neutral-400">
+          Dashboard &gt; Attendance
+        </p>
 
-        <div className="mt-6 max-w-xl rounded-xl bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold">Create Announcement</p>
-          <form onSubmit={handlePost} className="mt-4 space-y-3">
-            <input
-              type="text"
-              placeholder="Title"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-            />
-            <textarea
-              placeholder="Message"
-              value={form.body}
-              onChange={(e) => setForm({ ...form, body: e.target.value })}
-              rows={4}
-              className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-            />
-            <select
-              value={form.audience}
-              onChange={(e) => setForm({ ...form, audience: e.target.value })}
-              className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm outline-none"
-            >
-              <option value="department">Just my department ({user?.department})</option>
-              <option value="company">Company-wide</option>
-            </select>
+        <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
+          Attendance
+        </h1>
 
-            {message && (
-              <p className={`text-xs ${message.error ? "text-red-600" : "text-green-600"}`}>
-                {message.text}
+        <p className="text-xs text-neutral-400">
+          View today's attendance for your department
+        </p>
+
+        <div className="mt-6 rounded-xl bg-white shadow-sm">
+          <div className="border-b border-neutral-100 p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">
+                  Department Attendance
+                </p>
+
+                <p className="mt-1 text-xs text-neutral-400">
+                  {user?.department || "Department"} · {today}
+                </p>
+              </div>
+
+              <button
+                onClick={() => loadAttendance(user)}
+                className="rounded-md bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-800"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          <div className="p-5">
+            {loading && (
+              <p className="text-xs text-neutral-400">
+                Loading attendance...
               </p>
             )}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-md bg-neutral-900 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
-            >
-              {submitting ? "Posting..." : "Post Announcement"}
-            </button>
-          </form>
-        </div>
-
-        <div className="mt-6 space-y-3">
-          {loading && <p className="text-xs text-neutral-400">Loading...</p>}
-          {!loading && announcements.length === 0 && (
-            <p className="text-xs text-neutral-400">No announcements yet.</p>
-          )}
-          {announcements.map((a) => (
-            <div key={a.id} className="rounded-xl bg-white p-4 shadow-sm">
-              <p className="text-sm font-semibold">{a.title}</p>
-              <p className="mt-1 text-xs text-neutral-500">{a.body}</p>
-              <p className="mt-2 text-[10px] text-neutral-400">
-                Posted by {a.profiles?.full_name || "Unknown"}
-                {a.profiles?.role ? ` · ${ROLE_LABEL[a.profiles.role] || a.profiles.role}` : ""}
-                {" · "}
-                {new Date(a.created_at).toLocaleDateString("default", {
-                  year: "numeric", month: "long", day: "numeric",
-                })}
-                {a.department ? ` · ${a.department}` : " · Company-wide"}
+            {!loading && message && (
+              <p className="text-xs text-red-600">
+                {message}
               </p>
-            </div>
-          ))}
+            )}
+
+            {!loading && !message && records.length === 0 && (
+              <p className="text-xs text-neutral-400">
+                No attendance records found for today.
+              </p>
+            )}
+
+            {!loading && !message && records.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-neutral-100">
+                      <th className="px-3 py-3 text-xs font-semibold text-neutral-500">
+                        Employee
+                      </th>
+
+                      <th className="px-3 py-3 text-xs font-semibold text-neutral-500">
+                        Date
+                      </th>
+
+                      <th className="px-3 py-3 text-xs font-semibold text-neutral-500">
+                        Time In
+                      </th>
+
+                      <th className="px-3 py-3 text-xs font-semibold text-neutral-500">
+                        Time Out
+                      </th>
+
+                      <th className="px-3 py-3 text-xs font-semibold text-neutral-500">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {records.map((record) => (
+                      <tr
+                        key={record.id}
+                        className="border-b border-neutral-100 last:border-0"
+                      >
+                        <td className="px-3 py-3 text-sm text-neutral-900">
+                          {record.profiles?.full_name || "Unknown"}
+                        </td>
+
+                        <td className="px-3 py-3 text-xs text-neutral-500">
+                          {record.date || "-"}
+                        </td>
+
+                        <td className="px-3 py-3 text-xs text-neutral-500">
+                          {record.time_in || "-"}
+                        </td>
+
+                        <td className="px-3 py-3 text-xs text-neutral-500">
+                          {record.time_out || "-"}
+                        </td>
+
+                        <td className="px-3 py-3">
+                          <span className="rounded-full bg-neutral-100 px-2 py-1 text-[10px] font-medium text-neutral-700">
+                            {record.status || "Present"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
