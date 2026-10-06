@@ -7,7 +7,7 @@ import { activateAccount } from "../lib/mockDb"
 
 // There is no email server yet, so we show the default login on screen
 // to let you test. Set this to false once real emails are sent.
-const SHOW_DEMO_CREDENTIALS = true
+const SHOW_DEMO_CREDENTIALS = false
 
 export default function ActivateForm() {
   const [employeeId, setEmployeeId] = useState("")

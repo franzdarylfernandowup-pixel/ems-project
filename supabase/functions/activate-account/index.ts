@@ -56,23 +56,23 @@ Deno.serve(async (req) => {
     })
     .eq("employee_id", profile.employee_id)
 
-  // Send the real email via Gmail SMTP
+  // Send the real email via Brevo SMTP
   let emailSent = true
   try {
     const client = new SMTPClient({
       connection: {
-        hostname: "smtp.gmail.com",
+        hostname: "smtp-relay.brevo.com",
         port: 465,
         tls: true,
         auth: {
-          username: Deno.env.get("GMAIL_USER"),
-          password: Deno.env.get("GMAIL_APP_PASSWORD"),
+          username: Deno.env.get("BREVO_SMTP_LOGIN"),
+          password: Deno.env.get("BREVO_SMTP_KEY"),
         },
       },
     })
 
     await client.send({
-      from: Deno.env.get("GMAIL_USER"),
+      from: Deno.env.get("BREVO_SENDER_EMAIL"),
       to: profile.email,
       subject: "Your FND's Firm account is ready",
       content: `Hi ${profile.full_name},\n\nYour account has been activated.\n\nUsername: ${username}\nPassword: ${password}\n\nPlease log in and change your username on first login.`,
