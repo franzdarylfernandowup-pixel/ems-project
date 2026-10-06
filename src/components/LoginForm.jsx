@@ -121,13 +121,6 @@ export default function LoginForm() {
             }`}
           />
 
-          <Link
-            to="/change-password"
-            className="mt-2 inline-block text-[10px] text-white/60 hover:text-white"
-          >
-            Change password
-          </Link>
-
           <button
             type="submit"
             disabled={submitting}
